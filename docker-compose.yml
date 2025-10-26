@@ -1,0 +1,72 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: top03-kuai-postgres
+    environment:
+      POSTGRES_DB: top03_kuai
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - top03-kuai-network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: top03-kuai-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - top03-kuai-network
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: top03-kuai-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/top03_kuai
+      - REDIS_URL=redis://redis:6379
+      - ADMIN_PASSWORD=admin123
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - top03-kuai-network
+    volumes:
+      - ./backend:/app
+      - ./backend/static:/app/static
+
+  # Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: top03-kuai-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    depends_on:
+      - backend
+    networks:
+      - top03-kuai-network
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+
+volumes:
+  postgres_data:
+
+networks:
+  top03-kuai-network:
+    driver: bridge
